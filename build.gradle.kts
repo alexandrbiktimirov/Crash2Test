@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.3.10"
-    id("org.jetbrains.intellij.platform") version "2.10.2"
+    id("org.jetbrains.intellij.platform") version "2.14.0"
 }
 
 group = "com.crash2test"
@@ -44,6 +44,8 @@ tasks {
     }
 
     runIde {
+        coroutinesJavaAgentFile.set(layout.buildDirectory.file("disabled/coroutines-javaagent.jar"))
+        systemProperty("kotlinx.coroutines.debug", "off")
         args = listOf(project.projectDir.absolutePath)
     }
 }

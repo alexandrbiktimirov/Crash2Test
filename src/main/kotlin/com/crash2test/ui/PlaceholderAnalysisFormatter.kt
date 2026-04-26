@@ -1,26 +1,31 @@
 package com.crash2test.ui
 
-class PlaceholderAnalysisFormatter {
+import com.crash2test.model.ParsedStackTrace
+import com.crash2test.services.StackTraceParser
+
+class PlaceholderAnalysisFormatter(
+    private val stackTraceParser: StackTraceParser = StackTraceParser(),
+) {
     fun initialState(projectName: String): Crash2TestViewState = Crash2TestViewState(
-        statusMessage = "Paste a stack trace and run placeholder analysis.",
+        statusMessage = "Paste a stack trace or runtime error to parse it.",
         resultText = """
             Summary
             Crash2Test is ready for project "$projectName".
 
             Timeline
-            Paste a stack trace to see a placeholder debugging flow.
+            Paste a Java or Kotlin stack trace to extract exception details and frames.
 
             Likely Root Cause
             Not analyzed yet.
 
             Files to Inspect
-            No files selected yet.
+            No parsed stack frames yet.
 
             Regression Tests
-            No suggestions yet.
+            Parser milestone only. Test suggestions will be added after AI integration.
 
             Bug Report Draft
-            Add crash details to generate a draft.
+            Add crash details to build a draft from parsed results in later milestones.
         """.trimIndent(),
         canAnalyze = true,
     )
@@ -35,34 +40,66 @@ class PlaceholderAnalysisFormatter {
             )
         }
 
-        val previewLine = normalizedInput.lineSequence().firstOrNull().orEmpty().take(140)
-        val lineCount = normalizedInput.lineSequence().count()
+        val parsed = stackTraceParser.parse(normalizedInput)
+        if (parsed.exceptionType == null && parsed.frames.isEmpty()) {
+            return Crash2TestViewState(
+                statusMessage = "Could not recognize a Java or Kotlin stack trace.",
+                resultText = "",
+                canAnalyze = true,
+            )
+        }
 
         return Crash2TestViewState(
-            statusMessage = "Placeholder analysis complete.",
-            resultText = """
-                Summary
-                Placeholder analysis captured $lineCount line(s) of crash text.
-
-                Timeline
-                1. User pasted crash output into Crash2Test.
-                2. Plugin validated that input was present.
-                3. Placeholder analysis generated a structured response.
-
-                Likely Root Cause
-                Parser and AI integration are not implemented yet in this milestone.
-
-                Files to Inspect
-                Waiting for stack frame parsing and project file resolution.
-
-                Regression Tests
-                Add a regression test around the scenario described by:
-                $previewLine
-
-                Bug Report Draft
-                Reproduced a runtime failure from pasted crash output. Detailed parsing and root-cause analysis will be added in later milestones.
-            """.trimIndent(),
+            statusMessage = "Stack trace parsed successfully.",
+            resultText = formatParsedResult(parsed),
             canAnalyze = true,
         )
+    }
+
+    private fun formatParsedResult(parsed: ParsedStackTrace): String {
+        val summary = buildString {
+            append(parsed.exceptionType ?: "Exception type not detected")
+            parsed.exceptionMessage?.let { append(": $it") }
+            append(" (${parsed.frames.size} frame(s))")
+        }
+
+        val timeline = parsed.frames
+            .take(5)
+            .mapIndexed { index, frame ->
+                "${index + 1}. ${frame.className}.${frame.methodName}(${frame.fileName ?: "Unknown Source"}${frame.lineNumber?.let { ":$it" } ?: ""})"
+            }
+            .ifEmpty { listOf("No stack frames were parsed.") }
+            .joinToString("\n")
+
+        val filesToInspect = parsed.frames
+            .mapNotNull { frame ->
+                frame.fileName?.let { fileName ->
+                    if (frame.lineNumber != null) "$fileName:${frame.lineNumber}" else fileName
+                }
+            }
+            .distinct()
+            .take(5)
+            .ifEmpty { listOf("No source files were found in the parsed frames.") }
+            .joinToString("\n")
+
+        return buildString {
+            appendLine("Summary")
+            appendLine(summary)
+            appendLine()
+            appendLine("Timeline")
+            appendLine(timeline)
+            appendLine()
+            appendLine("Likely Root Cause")
+            appendLine(parsed.exceptionMessage ?: "The parser extracted stack frames but no exception message was provided.")
+            appendLine()
+            appendLine("Files to Inspect")
+            appendLine(filesToInspect)
+            appendLine()
+            appendLine("Regression Tests")
+            appendLine("Add parser-focused tests around the failure path shown by the parsed frames.")
+            appendLine()
+            appendLine("Bug Report Draft")
+            append("Reproduced ${parsed.exceptionType ?: "a runtime failure"} from the pasted stack trace. Parsed ${parsed.frames.size} frame(s) for follow-up investigation.")
+        }
     }
 }
