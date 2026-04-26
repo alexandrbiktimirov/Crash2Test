@@ -47,6 +47,7 @@ class PlaceholderAnalysisFormatterTest {
         assertContains(state.resultText, "java.lang.IllegalStateException: boom (2 frame(s))")
         assertContains(state.resultText, "1. com.example.SampleService.run(SampleService.kt:42)")
         assertContains(state.resultText, "SampleService.kt:42")
+        assertTrue(state.clickableFrames.isEmpty())
     }
 
     @Test
