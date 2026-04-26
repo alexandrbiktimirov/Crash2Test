@@ -2,7 +2,6 @@ package com.crash2test.ui
 
 import kotlin.test.Test
 import kotlin.test.assertContains
-import kotlin.test.assertFalse
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -13,7 +12,7 @@ class PlaceholderAnalysisFormatterTest {
     fun `initial state contains placeholder sections and project name`() {
         val state = formatter.initialState("Crash2TestSandbox")
 
-        assertEquals("Paste a stack trace and run placeholder analysis.", state.statusMessage)
+        assertEquals("Paste a stack trace or runtime error to parse it.", state.statusMessage)
         assertTrue(state.canAnalyze)
         assertContains(state.resultText, """Crash2Test is ready for project "Crash2TestSandbox".""")
         assertContains(state.resultText, "Summary")
@@ -43,21 +42,19 @@ class PlaceholderAnalysisFormatterTest {
             """.trimIndent(),
         )
 
-        assertEquals("Placeholder analysis complete.", state.statusMessage)
+        assertEquals("Stack trace parsed successfully.", state.statusMessage)
         assertTrue(state.canAnalyze)
-        assertContains(state.resultText, "Placeholder analysis captured 3 line(s) of crash text.")
-        assertContains(state.resultText, "java.lang.IllegalStateException: boom")
-        assertContains(state.resultText, "Parser and AI integration are not implemented yet in this milestone.")
+        assertContains(state.resultText, "java.lang.IllegalStateException: boom (2 frame(s))")
+        assertContains(state.resultText, "1. com.example.SampleService.run(SampleService.kt:42)")
+        assertContains(state.resultText, "SampleService.kt:42")
     }
 
     @Test
-    fun `analyze trims preview line to avoid oversized placeholder output`() {
-        val longFirstLine = "x".repeat(200)
+    fun `analyze rejects invalid stack trace input`() {
+        val state = formatter.analyze("x".repeat(200))
 
-        val state = formatter.analyze("$longFirstLine\nat com.example.Sample.run(Sample.kt:1)")
-
-        val expectedPreview = "x".repeat(140)
-        assertContains(state.resultText, expectedPreview)
-        assertFalse(state.resultText.contains("x".repeat(141)))
+        assertEquals("Could not recognize a Java or Kotlin stack trace.", state.statusMessage)
+        assertEquals("", state.resultText)
+        assertTrue(state.canAnalyze)
     }
 }
