@@ -52,10 +52,13 @@ class PlaceholderAnalysisFormatter(
             )
         }
 
+        val resolvedFrames = projectFileResolver?.resolve(parsed).orEmpty()
+
         return Crash2TestViewState(
             statusMessage = "Stack trace parsed successfully.",
-            resultText = formatParsedResult(parsed, projectFileResolver?.resolve(parsed).orEmpty()),
+            resultText = formatParsedResult(parsed, resolvedFrames),
             canAnalyze = true,
+            clickableFrames = resolvedFrames.filter { it.status == ResolvedFrame.ResolutionStatus.RESOLVED },
         )
     }
 

@@ -18,6 +18,7 @@ class ProjectFileResolver(
             ?: return ResolvedFrame(
                 frame = frame,
                 resolvedPath = null,
+                navigationPath = null,
                 lineNumber = frame.lineNumber,
                 status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
                 details = "No source file was present in the stack frame.",
@@ -32,6 +33,7 @@ class ProjectFileResolver(
             return ResolvedFrame(
                 frame = frame,
                 resolvedPath = null,
+                navigationPath = null,
                 lineNumber = frame.lineNumber,
                 status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
                 details = "No matching project file was found.",
@@ -52,6 +54,7 @@ class ProjectFileResolver(
         return ResolvedFrame(
             frame = frame,
             resolvedPath = null,
+            navigationPath = null,
             lineNumber = frame.lineNumber,
             status = ResolvedFrame.ResolutionStatus.AMBIGUOUS,
             details = buildAmbiguityMessage(candidates),
@@ -61,6 +64,7 @@ class ProjectFileResolver(
     private fun resolvedFrame(frame: StackFrameInfo, file: VirtualFile, details: String?) = ResolvedFrame(
         frame = frame,
         resolvedPath = toDisplayPath(file),
+        navigationPath = file.path,
         lineNumber = frame.lineNumber,
         status = ResolvedFrame.ResolutionStatus.RESOLVED,
         details = details,
