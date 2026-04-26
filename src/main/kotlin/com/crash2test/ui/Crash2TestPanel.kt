@@ -1,5 +1,6 @@
 package com.crash2test.ui
 
+import com.crash2test.services.ProjectFileResolver
 import com.intellij.openapi.project.Project
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
@@ -14,7 +15,7 @@ import javax.swing.JPanel
 
 class Crash2TestPanel(
     project: Project,
-    private val formatter: PlaceholderAnalysisFormatter = PlaceholderAnalysisFormatter(),
+    private val formatter: PlaceholderAnalysisFormatter = PlaceholderAnalysisFormatter(ProjectFileResolver(project)),
 ) : JPanel(BorderLayout()) {
     private val inputArea = JBTextArea().apply {
         lineWrap = true

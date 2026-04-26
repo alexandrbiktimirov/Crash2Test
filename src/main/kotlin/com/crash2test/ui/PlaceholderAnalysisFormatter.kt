@@ -1,9 +1,12 @@
 package com.crash2test.ui
 
 import com.crash2test.model.ParsedStackTrace
+import com.crash2test.model.ResolvedFrame
+import com.crash2test.services.ProjectFileResolver
 import com.crash2test.services.StackTraceParser
 
 class PlaceholderAnalysisFormatter(
+    private val projectFileResolver: ProjectFileResolver? = null,
     private val stackTraceParser: StackTraceParser = StackTraceParser(),
 ) {
     fun initialState(projectName: String): Crash2TestViewState = Crash2TestViewState(
@@ -51,12 +54,12 @@ class PlaceholderAnalysisFormatter(
 
         return Crash2TestViewState(
             statusMessage = "Stack trace parsed successfully.",
-            resultText = formatParsedResult(parsed),
+            resultText = formatParsedResult(parsed, projectFileResolver?.resolve(parsed).orEmpty()),
             canAnalyze = true,
         )
     }
 
-    private fun formatParsedResult(parsed: ParsedStackTrace): String {
+    private fun formatParsedResult(parsed: ParsedStackTrace, resolvedFrames: List<ResolvedFrame>): String {
         val summary = buildString {
             append(parsed.exceptionType ?: "Exception type not detected")
             parsed.exceptionMessage?.let { append(": $it") }
@@ -71,14 +74,19 @@ class PlaceholderAnalysisFormatter(
             .ifEmpty { listOf("No stack frames were parsed.") }
             .joinToString("\n")
 
-        val filesToInspect = parsed.frames
-            .mapNotNull { frame ->
-                frame.fileName?.let { fileName ->
-                    if (frame.lineNumber != null) "$fileName:${frame.lineNumber}" else fileName
+        val filesToInspect = resolvedFrames
+            .take(5)
+            .map { resolvedFrame ->
+                when (resolvedFrame.status) {
+                    ResolvedFrame.ResolutionStatus.RESOLVED -> buildString {
+                        append(resolvedFrame.resolvedPath ?: resolvedFrame.frame.fileName ?: "Unknown file")
+                        resolvedFrame.lineNumber?.let { append(":$it") }
+                    }
+
+                    ResolvedFrame.ResolutionStatus.AMBIGUOUS -> "Unresolved ${resolvedFrame.frame.fileName}: ${resolvedFrame.details}"
+                    ResolvedFrame.ResolutionStatus.UNRESOLVED -> "Unresolved ${resolvedFrame.frame.fileName ?: resolvedFrame.frame.className}: ${resolvedFrame.details}"
                 }
             }
-            .distinct()
-            .take(5)
             .ifEmpty { listOf("No source files were found in the parsed frames.") }
             .joinToString("\n")
 
