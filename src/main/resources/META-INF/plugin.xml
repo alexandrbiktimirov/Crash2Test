@@ -11,7 +11,6 @@
     <resource-bundle>messages.Crash2TestBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <postStartupActivity implementation="com.crash2test.ui.Crash2TestStartupActivity"/>
         <toolWindow
                 id="Crash2Test"
                 anchor="right"

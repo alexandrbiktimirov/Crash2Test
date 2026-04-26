@@ -23,6 +23,8 @@ import javax.swing.DefaultListCellRenderer
 import javax.swing.JButton
 import javax.swing.JList
 import javax.swing.JPanel
+import javax.swing.KeyStroke
+import javax.swing.ListSelectionModel
 
 class Crash2TestPanel(
     private val project: Project,
@@ -41,10 +43,15 @@ class Crash2TestPanel(
         background = JBColor.PanelBackground
         border = BorderFactory.createEmptyBorder(8, 8, 8, 8)
     }
+    private val statusLabel = JBLabel()
+    private val resolvedFramesLabel = JBLabel("Resolved Frames (Double-click or press Enter to open)").apply {
+        isVisible = false
+    }
     private val resolvedFrameModel = DefaultListModel<ResolvedFrame>()
     private val resolvedFramesList = JBList(resolvedFrameModel).apply {
         cursor = Cursor.getPredefinedCursor(Cursor.HAND_CURSOR)
         visibleRowCount = 4
+        selectionMode = ListSelectionModel.SINGLE_SELECTION
         cellRenderer = object : DefaultListCellRenderer() {
             override fun getListCellRendererComponent(
                 list: JList<*>?,
@@ -61,18 +68,25 @@ class Crash2TestPanel(
         }
         addMouseListener(object : MouseAdapter() {
             override fun mouseClicked(event: MouseEvent) {
-                if (event.clickCount == 1) {
+                if (event.clickCount >= 2) {
                     selectedValue?.let(::openResolvedFrame)
                 }
             }
         })
+        inputMap.put(KeyStroke.getKeyStroke("ENTER"), "openResolvedFrame")
+        actionMap.put(
+            "openResolvedFrame",
+            object : javax.swing.AbstractAction() {
+                override fun actionPerformed(event: java.awt.event.ActionEvent?) {
+                    selectedValue?.let(::openResolvedFrame)
+                }
+            },
+        )
     }
     private val resolvedFramesScrollPane = JBScrollPane(resolvedFramesList).apply {
         preferredSize = Dimension(320, 96)
         isVisible = false
     }
-
-    private val statusLabel = JBLabel()
     private val analyzeButton = JButton("Analyze").apply {
         addActionListener {
             val state = ReadAction.compute<Crash2TestViewState, RuntimeException> {
@@ -98,7 +112,8 @@ class Crash2TestPanel(
             .addVerticalGap(8)
             .addLabeledComponentFillVertically("Analysis Result", JBScrollPane(resultArea))
             .addVerticalGap(8)
-            .addLabeledComponentFillVertically("Resolved Frames", resolvedFramesScrollPane)
+            .addComponent(resolvedFramesLabel)
+            .addComponentFillVertically(resolvedFramesScrollPane, 0)
             .panel
 
         add(formPanel, BorderLayout.CENTER)
@@ -110,7 +125,9 @@ class Crash2TestPanel(
         analyzeButton.isEnabled = state.canAnalyze
         resolvedFrameModel.removeAllElements()
         state.clickableFrames.forEach(resolvedFrameModel::addElement)
-        resolvedFramesScrollPane.isVisible = state.clickableFrames.isNotEmpty()
+        val hasClickableFrames = state.clickableFrames.isNotEmpty()
+        resolvedFramesLabel.isVisible = hasClickableFrames
+        resolvedFramesScrollPane.isVisible = hasClickableFrames
     }
 
     private fun openResolvedFrame(resolvedFrame: ResolvedFrame) {

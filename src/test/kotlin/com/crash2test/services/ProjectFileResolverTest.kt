@@ -62,4 +62,24 @@ class ProjectFileResolverTest {
 
         assertNull(match)
     }
+
+    @Test
+    fun `normalizes windows separators before scoring package matches`() {
+        val frame = StackFrameInfo(
+            className = "com.example.orders.OrderService",
+            methodName = "createOrder",
+            fileName = "OrderService.java",
+            lineNumber = 42,
+        )
+
+        val match = ProjectFileResolver.selectBestMatch(
+            frame,
+            listOf(
+                """C:\repo\src\main\java\com\example\orders\OrderService.java""",
+                """C:\repo\src\main\java\com\example\payments\OrderService.java""",
+            ),
+        )
+
+        assertEquals("C:/repo/src/main/java/com/example/orders/OrderService.java", match)
+    }
 }

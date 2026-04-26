@@ -11,33 +11,29 @@ import com.intellij.psi.search.GlobalSearchScope
 class ProjectFileResolver(
     private val project: Project,
 ) {
-    fun resolve(parsedStackTrace: ParsedStackTrace): List<ResolvedFrame> = parsedStackTrace.frames.map(::resolveFrame)
+    fun resolve(parsedStackTrace: ParsedStackTrace): List<ResolvedFrame> {
+        val candidateCache = mutableMapOf<String, List<VirtualFile>>()
+        return parsedStackTrace.frames.map { frame ->
+            resolveFrame(frame, candidateCache)
+        }
+    }
 
-    private fun resolveFrame(frame: StackFrameInfo): ResolvedFrame {
+    private fun resolveFrame(
+        frame: StackFrameInfo,
+        candidateCache: MutableMap<String, List<VirtualFile>>,
+    ): ResolvedFrame {
         val fileName = frame.fileName
-            ?: return ResolvedFrame(
-                frame = frame,
-                resolvedPath = null,
-                navigationPath = null,
-                lineNumber = frame.lineNumber,
-                status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
-                details = "No source file was present in the stack frame.",
-            )
+            ?: return unresolvedFrame(frame, "No source file was present in the stack frame.")
 
-        val candidates = FilenameIndex.getVirtualFilesByName(
-            fileName,
-            GlobalSearchScope.projectScope(project),
-        ).toList()
+        val candidates = candidateCache.getOrPut(fileName) {
+            FilenameIndex.getVirtualFilesByName(
+                fileName,
+                GlobalSearchScope.projectScope(project),
+            ).toList()
+        }
 
         if (candidates.isEmpty()) {
-            return ResolvedFrame(
-                frame = frame,
-                resolvedPath = null,
-                navigationPath = null,
-                lineNumber = frame.lineNumber,
-                status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
-                details = "No matching project file was found.",
-            )
+            return unresolvedFrame(frame, "No matching project file was found.")
         }
 
         if (candidates.size == 1) {
@@ -45,20 +41,15 @@ class ProjectFileResolver(
         }
 
         val chosenPath = selectBestMatch(frame, candidates.map { it.path })
-        val chosenFile = chosenPath?.let { path -> candidates.firstOrNull { it.path == path } }
+        val chosenFile = chosenPath?.let { path ->
+            candidates.firstOrNull { candidate -> normalizePath(candidate.path) == path }
+        }
 
         if (chosenFile != null) {
             return resolvedFrame(frame, chosenFile, "Matched by package path.")
         }
 
-        return ResolvedFrame(
-            frame = frame,
-            resolvedPath = null,
-            navigationPath = null,
-            lineNumber = frame.lineNumber,
-            status = ResolvedFrame.ResolutionStatus.AMBIGUOUS,
-            details = buildAmbiguityMessage(candidates),
-        )
+        return ambiguousFrame(frame, candidates)
     }
 
     private fun resolvedFrame(frame: StackFrameInfo, file: VirtualFile, details: String?) = ResolvedFrame(
@@ -68,6 +59,24 @@ class ProjectFileResolver(
         lineNumber = frame.lineNumber,
         status = ResolvedFrame.ResolutionStatus.RESOLVED,
         details = details,
+    )
+
+    private fun unresolvedFrame(frame: StackFrameInfo, details: String) = ResolvedFrame(
+        frame = frame,
+        resolvedPath = null,
+        navigationPath = null,
+        lineNumber = frame.lineNumber,
+        status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
+        details = details,
+    )
+
+    private fun ambiguousFrame(frame: StackFrameInfo, candidates: List<VirtualFile>) = ResolvedFrame(
+        frame = frame,
+        resolvedPath = null,
+        navigationPath = null,
+        lineNumber = frame.lineNumber,
+        status = ResolvedFrame.ResolutionStatus.AMBIGUOUS,
+        details = buildAmbiguityMessage(candidates),
     )
 
     private fun toDisplayPath(file: VirtualFile): String {
@@ -80,9 +89,14 @@ class ProjectFileResolver(
     }
 
     private fun buildAmbiguityMessage(candidates: List<VirtualFile>): String =
-        candidates
-            .take(3)
-            .joinToString(prefix = "Multiple matches: ", separator = ", ") { toDisplayPath(it) }
+        buildString {
+            append("Multiple matching project files were found")
+            if (candidates.size > 3) {
+                append(" (${candidates.size} total)")
+            }
+            append(": ")
+            append(candidates.take(3).joinToString(separator = ", ") { toDisplayPath(it) })
+        }
 
     companion object {
         internal fun selectBestMatch(frame: StackFrameInfo, candidatePaths: List<String>): String? {
@@ -92,7 +106,7 @@ class ProjectFileResolver(
             }
 
             val scoredMatches = candidatePaths.mapNotNull { path ->
-                val normalizedPath = path.replace('\\', '/')
+                val normalizedPath = normalizePath(path)
                 val score = matchScore(normalizedPath, packagePath)
                 score.takeIf { it > 0 }?.let { normalizedPath to it }
             }
@@ -106,6 +120,8 @@ class ProjectFileResolver(
 
             return bestMatches.singleOrNull()
         }
+
+        private fun normalizePath(path: String): String = path.replace('\\', '/')
 
         private fun matchScore(candidatePath: String, packagePath: String): Int = when {
             candidatePath.contains("/$packagePath/") -> packagePath.length + 2
