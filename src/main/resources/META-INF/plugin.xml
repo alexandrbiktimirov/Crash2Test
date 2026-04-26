@@ -1,0 +1,13 @@
+<idea-plugin>
+    <id>com.crash2test.plugin</id>
+    <name>Crash2Test</name>
+    <vendor email="biktimirovalexandr@gmail.com">Crash2Test</vendor>
+    <description><![CDATA[
+        Crash2Test is a local AI-powered IntelliJ IDEA plugin that helps developers turn stack traces and runtime errors into debugging timelines and regression test ideas.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+    <depends>org.jetbrains.kotlin</depends>
+    <resource-bundle>messages.Crash2TestBundle</resource-bundle>
+</idea-plugin>
