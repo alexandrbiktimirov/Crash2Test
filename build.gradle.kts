@@ -1,6 +1,6 @@
 plugins {
     kotlin("jvm") version "2.3.10"
-    id("org.jetbrains.intellij.platform") version "2.10.2"
+    id("org.jetbrains.intellij.platform") version "2.14.0"
 }
 
 group = "com.crash2test"
@@ -21,13 +21,16 @@ dependencies {
     }
 
     testImplementation(kotlin("test"))
+    testRuntimeOnly("junit:junit:4.13.2")
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
 }
 
 intellijPlatform {
+    buildSearchableOptions = false
+
     pluginConfiguration {
         ideaVersion {
             sinceBuild = "261"
@@ -38,5 +41,9 @@ intellijPlatform {
 tasks {
     test {
         useJUnitPlatform()
+    }
+
+    runIde {
+        args = listOf(project.projectDir.absolutePath)
     }
 }
