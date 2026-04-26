@@ -8,6 +8,14 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
-    <depends>org.jetbrains.kotlin</depends>
     <resource-bundle>messages.Crash2TestBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <postStartupActivity implementation="com.crash2test.ui.Crash2TestStartupActivity"/>
+        <toolWindow
+                id="Crash2Test"
+                anchor="right"
+                icon="/icons/crash2testToolWindow.svg"
+                factoryClass="com.crash2test.ui.Crash2TestToolWindowFactory"/>
+    </extensions>
 </idea-plugin>
