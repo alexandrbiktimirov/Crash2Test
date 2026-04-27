@@ -1,0 +1,61 @@
+package com.crash2test.services
+
+import com.crash2test.model.CrashAnalysisResult
+import com.intellij.openapi.application.ReadAction
+
+class CrashAnalysisService(
+    private val stackTraceParser: StackTraceParser,
+    private val projectFileResolver: ProjectFileResolver,
+    private val regressionTestLanguageResolver: RegressionTestLanguageResolver = RegressionTestLanguageResolver(),
+    private val sourceSnippetExtractor: SourceSnippetExtractor = SourceSnippetExtractor(),
+    private val promptBuilder: PromptBuilder = PromptBuilder(),
+    private val ollamaClient: OllamaClient = OllamaClient(),
+) {
+    fun analyze(rawInput: String): CrashAnalysisResult = analyzeStreaming(
+        rawInput = rawInput,
+        onChunk = {},
+    )
+
+    fun analyzeStreaming(
+        rawInput: String,
+        onChunk: (String) -> Unit,
+    ): CrashAnalysisResult {
+        val normalizedInput = rawInput.trim()
+        if (normalizedInput.isEmpty()) {
+            return CrashAnalysisResult.Failure(
+                message = "Enter a stack trace or runtime error before running analysis.",
+            )
+        }
+
+        val parsed = stackTraceParser.parse(normalizedInput)
+        if (parsed.exceptionType == null && parsed.frames.isEmpty()) {
+            return CrashAnalysisResult.Failure(
+                message = "Could not recognize a Java or Kotlin stack trace.",
+            )
+        }
+
+        val resolvedFrames = ReadAction.compute<List<com.crash2test.model.ResolvedFrame>, RuntimeException> {
+            projectFileResolver.resolve(parsed)
+        }
+        val regressionTestLanguage = regressionTestLanguageResolver.resolve(resolvedFrames)
+        val codeSnippets = sourceSnippetExtractor.extract(resolvedFrames)
+        val prompt = promptBuilder.build(parsed, resolvedFrames, codeSnippets, regressionTestLanguage)
+
+        return when (val ollamaResult = ollamaClient.generateStreaming(prompt, onChunk)) {
+            is OllamaResult.Success -> CrashAnalysisResult.Success(
+                parsedStackTrace = parsed,
+                resolvedFrames = resolvedFrames,
+                regressionTestLanguage = regressionTestLanguage,
+                prompt = prompt,
+                analysisText = ollamaResult.response,
+            )
+
+            is OllamaResult.Failure -> CrashAnalysisResult.Failure(
+                message = ollamaResult.message,
+                parsedStackTrace = parsed,
+                resolvedFrames = resolvedFrames,
+                regressionTestLanguage = regressionTestLanguage,
+            )
+        }
+    }
+}
