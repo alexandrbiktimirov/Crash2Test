@@ -133,6 +133,29 @@ class OllamaClientTest {
     }
 
     @Test
+    fun `returns invalid request failure when configured URL is malformed`() {
+        val client = OllamaClient(
+            config = OllamaClientConfig(baseUrl = "not a valid url"),
+            transport = RecordingTransport(
+                response = OllamaHttpResponse(
+                    statusCode = 200,
+                    body = """{"response":"unused"}""",
+                ),
+            ),
+        )
+
+        val result = client.generate("Analyze this crash")
+
+        assertEquals(
+            OllamaResult.Failure(
+                type = OllamaErrorType.INVALID_REQUEST,
+                message = "Ollama URL is invalid. Check Crash2Test settings.",
+            ),
+            result,
+        )
+    }
+
+    @Test
     fun `streams partial responses and accumulates final text`() {
         val chunks = mutableListOf<String>()
         val transport = StreamingTransport(

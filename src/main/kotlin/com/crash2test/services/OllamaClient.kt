@@ -179,6 +179,11 @@ class OllamaClient(
         timeoutFailure()
     } catch (_: TimeoutException) {
         timeoutFailure()
+    } catch (_: IllegalArgumentException) {
+        OllamaResult.Failure(
+            type = OllamaErrorType.INVALID_REQUEST,
+            message = "Ollama URL is invalid. Check Crash2Test settings.",
+        )
     } catch (exception: Exception) {
         OllamaResult.Failure(
             type = OllamaErrorType.UNKNOWN,

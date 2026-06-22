@@ -3,9 +3,7 @@ package com.crash2test.ui
 import com.crash2test.model.CrashAnalysisResult
 import com.crash2test.model.ResolvedFrame
 import com.crash2test.services.CrashAnalyzer
-import com.crash2test.services.CrashAnalysisService
-import com.crash2test.services.ProjectFileResolver
-import com.crash2test.services.StackTraceParser
+import com.crash2test.services.SettingsBackedCrashAnalyzer
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
@@ -49,10 +47,7 @@ import javax.swing.SwingWorker
 
 class Crash2TestPanel(
     private val project: Project,
-    private val analysisService: CrashAnalyzer = CrashAnalysisService(
-        stackTraceParser = StackTraceParser(),
-        frameResolver = ProjectFileResolver(project),
-    ),
+    private val analysisService: CrashAnalyzer = SettingsBackedCrashAnalyzer(project),
     private val renderer: AnalysisResultRenderer = AnalysisResultRenderer(),
 ) : JPanel(BorderLayout()), Disposable {
     private val inputArea = JBTextArea().apply {
