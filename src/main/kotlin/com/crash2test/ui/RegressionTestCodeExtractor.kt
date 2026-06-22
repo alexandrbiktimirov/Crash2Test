@@ -4,13 +4,13 @@ class RegressionTestCodeExtractor {
     fun extract(markdown: String): ExtractionResult {
         val normalized = markdown.replace("\r\n", "\n")
         val lines = normalized.split('\n')
-        val sectionStart = lines.indexOfFirst { isRegressionHeading(it.trim()) }
+        val sectionStart = lines.indexOfFirst { AnalysisSectionHeadings.isRegressionHeading(it) }
         if (sectionStart < 0) {
             return ExtractionResult(normalized, null)
         }
 
         val sectionEnd = (sectionStart + 1 until lines.size)
-            .firstOrNull { isHeading(lines[it].trim()) }
+            .firstOrNull { AnalysisSectionHeadings.isHeading(lines[it]) }
             ?: lines.size
 
         val bodyLines = lines.subList(sectionStart + 1, sectionEnd)
@@ -44,10 +44,6 @@ class RegressionTestCodeExtractor {
         )
     }
 
-    private fun isRegressionHeading(line: String): Boolean = line == "Regression Test" || line == "Regression Test:"
-
-    private fun isHeading(line: String): Boolean = line.removeSuffix(":") in headings
-
     data class ExtractionResult(
         val markdown: String,
         val regressionTestCode: RegressionTestCodeBlock?,
@@ -60,20 +56,5 @@ class RegressionTestCodeExtractor {
 
     companion object {
         private val CODE_BLOCK_PATTERN = Regex("""```([A-Za-z0-9_+#-]*)\s*\n(.*?)\n```""", setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE))
-        private val headings = setOf(
-            "Summary",
-            "Likely Root Cause",
-            "Proposed Fix",
-            "Regression Test",
-            "Files to Inspect",
-            "Bug Report Draft",
-            "Observed Failure Path",
-            "Description",
-            "Steps to Reproduce",
-            "Impact",
-            "Additional Information",
-            "Possible Mitigations",
-            "Title",
-        )
     }
 }

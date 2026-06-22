@@ -8,10 +8,14 @@ import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.search.FilenameIndex
 import com.intellij.psi.search.GlobalSearchScope
 
+interface FrameResolver {
+    fun resolve(parsedStackTrace: ParsedStackTrace): List<ResolvedFrame>
+}
+
 class ProjectFileResolver(
     private val project: Project,
-) {
-    fun resolve(parsedStackTrace: ParsedStackTrace): List<ResolvedFrame> {
+) : FrameResolver {
+    override fun resolve(parsedStackTrace: ParsedStackTrace): List<ResolvedFrame> {
         val candidateCache = mutableMapOf<String, List<VirtualFile>>()
         return parsedStackTrace.frames.map { frame ->
             resolveFrame(frame, candidateCache)

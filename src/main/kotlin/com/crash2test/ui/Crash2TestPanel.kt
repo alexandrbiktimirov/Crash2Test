@@ -2,6 +2,7 @@ package com.crash2test.ui
 
 import com.crash2test.model.CrashAnalysisResult
 import com.crash2test.model.ResolvedFrame
+import com.crash2test.services.CrashAnalyzer
 import com.crash2test.services.CrashAnalysisService
 import com.crash2test.services.ProjectFileResolver
 import com.crash2test.services.StackTraceParser
@@ -48,9 +49,9 @@ import javax.swing.SwingWorker
 
 class Crash2TestPanel(
     private val project: Project,
-    private val analysisService: CrashAnalysisService = CrashAnalysisService(
+    private val analysisService: CrashAnalyzer = CrashAnalysisService(
         stackTraceParser = StackTraceParser(),
-        projectFileResolver = ProjectFileResolver(project),
+        frameResolver = ProjectFileResolver(project),
     ),
     private val renderer: AnalysisResultRenderer = AnalysisResultRenderer(),
 ) : JPanel(BorderLayout()), Disposable {

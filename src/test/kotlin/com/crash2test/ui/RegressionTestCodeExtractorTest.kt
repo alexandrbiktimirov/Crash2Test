@@ -57,4 +57,36 @@ class RegressionTestCodeExtractorTest {
 
         assertNull(result.regressionTestCode)
     }
+
+    @Test
+    fun `extracts code from markdown heading and stops at plural heading variant`() {
+        val result = extractor.extract(
+            """
+            ## Regression Tests:
+            Keep this context.
+
+            ```java
+            @Test
+            void reproducesCrash() {
+            }
+            ```
+
+            ## Files to Inspect
+            OrderService.java
+            """.trimIndent(),
+        )
+
+        assertContains(result.markdown, "Keep this context.")
+        assertContains(result.markdown, "See dedicated code panel below.")
+        assertContains(result.markdown, "## Files to Inspect")
+        assertEquals(
+            """
+            @Test
+            void reproducesCrash() {
+            }
+            """.trimIndent(),
+            result.regressionTestCode?.code,
+        )
+        assertEquals("java", result.regressionTestCode?.fenceTag)
+    }
 }

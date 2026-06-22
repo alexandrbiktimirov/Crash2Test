@@ -16,11 +16,15 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.concurrent.TimeoutException
 
+interface CrashAnalysisGenerator {
+    fun generateStreaming(prompt: String, onChunk: (String) -> Unit): OllamaResult
+}
+
 class OllamaClient(
     private val config: OllamaClientConfig = OllamaClientConfig(),
     private val transport: OllamaTransport = HttpOllamaTransport(),
     private val json: Json = Json { ignoreUnknownKeys = true },
-) {
+) : CrashAnalysisGenerator {
     fun generate(prompt: String): OllamaResult {
         val normalizedPrompt = prompt.trim()
         validatePrompt(normalizedPrompt)?.let { return it }
@@ -35,7 +39,7 @@ class OllamaClient(
         }
     }
 
-    fun generateStreaming(
+    override fun generateStreaming(
         prompt: String,
         onChunk: (String) -> Unit,
     ): OllamaResult {

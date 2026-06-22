@@ -10,7 +10,7 @@ class MarkdownToHtmlRendererTest {
     fun `renders headings inline code and lists into html`() {
         val html = renderer.toHtml(
             """
-            Summary:
+            ## Summary:
             The crash occurred in the `Crash2TestPanel` class.
 
             Files to Inspect:
@@ -30,5 +30,21 @@ class MarkdownToHtmlRendererTest {
         assertContains(html, "<li><code>Crash2TestPanel.kt</code> (line 142)</li>")
         assertContains(html, "<ul")
         assertContains(html, "<li>Test <code>startAnalysis()</code></li>")
+    }
+
+    @Test
+    fun `renders fenced code blocks as escaped preformatted html`() {
+        val html = renderer.toHtml(
+            """
+            Proposed Fix
+            ```kotlin
+            check(value < limit) { "too large" }
+            ```
+            """.trimIndent(),
+        )
+
+        assertContains(html, "<pre")
+        assertContains(html, "check(value &lt; limit)")
+        assertContains(html, "&quot;too large&quot;")
     }
 }

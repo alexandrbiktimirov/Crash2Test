@@ -15,11 +15,28 @@ class MarkdownToHtmlRenderer {
                 continue
             }
 
-            if (isHeading(trimmed)) {
+            if (AnalysisSectionHeadings.isHeading(trimmed)) {
                 html.append("<h3 style=\"margin:12px 0 6px 0;\">")
-                html.append(formatInline(trimmed.removeSuffix(":")))
+                html.append(formatInline(AnalysisSectionHeadings.displayTitle(trimmed)))
                 html.append("</h3>")
                 index++
+                continue
+            }
+
+            if (trimmed.startsWith(CODE_FENCE)) {
+                val codeLines = mutableListOf<String>()
+                index++
+                while (index < lines.size && !lines[index].trim().startsWith(CODE_FENCE)) {
+                    codeLines += lines[index]
+                    index++
+                }
+                if (index < lines.size) {
+                    index++
+                }
+
+                html.append("<pre style=\"margin:6px 0 10px 0; padding:8px; background:#f6f8fa; overflow-x:auto;\"><code>")
+                html.append(escapeHtml(codeLines.joinToString(separator = "\n")))
+                html.append("</code></pre>")
                 continue
             }
 
@@ -48,9 +65,10 @@ class MarkdownToHtmlRenderer {
             val paragraphLines = mutableListOf<String>()
             while (index < lines.size) {
                 val candidate = lines[index].trim()
-                if (candidate.isBlank() || isHeading(candidate) ||
+                if (candidate.isBlank() || AnalysisSectionHeadings.isHeading(candidate) ||
                     candidate.matches(ORDERED_LIST_PATTERN) ||
-                    candidate.matches(UNORDERED_LIST_PATTERN)
+                    candidate.matches(UNORDERED_LIST_PATTERN) ||
+                    candidate.startsWith(CODE_FENCE)
                 ) {
                     break
                 }
@@ -67,22 +85,8 @@ class MarkdownToHtmlRenderer {
         return html.toString()
     }
 
-    private fun isHeading(line: String): Boolean = line.removeSuffix(":") in headings
-
     private fun formatInline(text: String): String {
-        var escaped = buildString {
-            text.forEach { character ->
-                append(
-                    when (character) {
-                        '&' -> "&amp;"
-                        '<' -> "&lt;"
-                        '>' -> "&gt;"
-                        '"' -> "&quot;"
-                        else -> character
-                    },
-                )
-            }
-        }
+        var escaped = escapeHtml(text)
 
         escaped = escaped.replace(Regex("""`([^`]+)`"""), "<code>$1</code>")
         escaped = escaped.replace(Regex("""\*\*([^*]+)\*\*"""), "<b>$1</b>")
@@ -90,23 +94,23 @@ class MarkdownToHtmlRenderer {
         return escaped
     }
 
+    private fun escapeHtml(text: String): String = buildString {
+        text.forEach { character ->
+            append(
+                when (character) {
+                    '&' -> "&amp;"
+                    '<' -> "&lt;"
+                    '>' -> "&gt;"
+                    '"' -> "&quot;"
+                    else -> character
+                },
+            )
+        }
+    }
+
     companion object {
+        private const val CODE_FENCE = "```"
         private val ORDERED_LIST_PATTERN = Regex("""^\d+\.\s+.+$""")
         private val UNORDERED_LIST_PATTERN = Regex("""^[-*]\s+.+$""")
-        private val headings = setOf(
-            "Summary",
-            "Likely Root Cause",
-            "Proposed Fix",
-            "Regression Test",
-            "Files to Inspect",
-            "Bug Report Draft",
-            "Observed Failure Path",
-            "Description",
-            "Steps to Reproduce",
-            "Impact",
-            "Additional Information",
-            "Possible Mitigations",
-            "Title",
-        )
     }
 }

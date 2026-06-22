@@ -1,22 +1,35 @@
 package com.crash2test.services
 
 import com.crash2test.model.CrashAnalysisResult
+import com.crash2test.model.ResolvedFrame
 import com.intellij.openapi.application.ReadAction
+
+fun interface CrashAnalyzer {
+    fun analyzeStreaming(
+        rawInput: String,
+        onChunk: (String) -> Unit,
+    ): CrashAnalysisResult
+}
 
 class CrashAnalysisService(
     private val stackTraceParser: StackTraceParser,
-    private val projectFileResolver: ProjectFileResolver,
+    private val frameResolver: FrameResolver,
     private val regressionTestLanguageResolver: RegressionTestLanguageResolver = RegressionTestLanguageResolver(),
     private val sourceSnippetExtractor: SourceSnippetExtractor = SourceSnippetExtractor(),
     private val promptBuilder: PromptBuilder = PromptBuilder(),
-    private val ollamaClient: OllamaClient = OllamaClient(),
-) {
+    private val analysisGenerator: CrashAnalysisGenerator = OllamaClient(),
+    private val resolveInReadAction: (() -> List<ResolvedFrame>) -> List<ResolvedFrame> = { computation ->
+        ReadAction.computeBlocking<List<ResolvedFrame>, RuntimeException> {
+            computation()
+        }
+    },
+) : CrashAnalyzer {
     fun analyze(rawInput: String): CrashAnalysisResult = analyzeStreaming(
         rawInput = rawInput,
         onChunk = {},
     )
 
-    fun analyzeStreaming(
+    override fun analyzeStreaming(
         rawInput: String,
         onChunk: (String) -> Unit,
     ): CrashAnalysisResult {
@@ -34,14 +47,14 @@ class CrashAnalysisService(
             )
         }
 
-        val resolvedFrames = ReadAction.compute<List<com.crash2test.model.ResolvedFrame>, RuntimeException> {
-            projectFileResolver.resolve(parsed)
+        val resolvedFrames = resolveInReadAction {
+            frameResolver.resolve(parsed)
         }
         val regressionTestLanguage = regressionTestLanguageResolver.resolve(resolvedFrames)
         val codeSnippets = sourceSnippetExtractor.extract(resolvedFrames)
         val prompt = promptBuilder.build(parsed, resolvedFrames, codeSnippets, regressionTestLanguage)
 
-        return when (val ollamaResult = ollamaClient.generateStreaming(prompt, onChunk)) {
+        return when (val ollamaResult = analysisGenerator.generateStreaming(prompt, onChunk)) {
             is OllamaResult.Success -> CrashAnalysisResult.Success(
                 parsedStackTrace = parsed,
                 resolvedFrames = resolvedFrames,

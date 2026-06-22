@@ -1,6 +1,9 @@
+import org.gradle.testing.jacoco.plugins.JacocoTaskExtension
+
 plugins {
     kotlin("jvm") version "2.3.10"
     id("org.jetbrains.intellij.platform") version "2.14.0"
+    jacoco
 }
 
 group = "com.crash2test"
@@ -22,7 +25,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     testImplementation(kotlin("test"))
-    testRuntimeOnly("junit:junit:4.13.2")
+    testImplementation("junit:junit:4.13.2")
 }
 
 kotlin {
@@ -42,6 +45,36 @@ intellijPlatform {
 tasks {
     test {
         useJUnitPlatform()
+        extensions.configure(JacocoTaskExtension::class) {
+            isIncludeNoLocationClasses = true
+            excludes = listOf("jdk.internal.*")
+        }
+        finalizedBy(jacocoTestReport)
+    }
+
+    jacocoTestReport {
+        dependsOn(test)
+        classDirectories.setFrom(layout.buildDirectory.dir("instrumented/instrumentCode"))
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    jacocoTestCoverageVerification {
+        dependsOn(jacocoTestReport)
+        classDirectories.setFrom(layout.buildDirectory.dir("instrumented/instrumentCode"))
+        violationRules {
+            rule {
+                limit {
+                    minimum = "0.80".toBigDecimal()
+                }
+            }
+        }
+    }
+
+    check {
+        dependsOn(jacocoTestCoverageVerification)
     }
 
     runIde {

@@ -34,4 +34,57 @@ class RegressionTestLanguageResolverTest {
         assertEquals("Kotlin", language.displayName)
         assertEquals("kotlin", language.fenceTag)
     }
+
+    @Test
+    fun `detects common regression test languages from resolved source extension`() {
+        val expectations = mapOf(
+            "Sample.py" to "Python",
+            "Sample.js" to "JavaScript",
+            "Sample.ts" to "TypeScript",
+            "Sample.go" to "Go",
+            "Sample.rb" to "Ruby",
+            "Sample.php" to "PHP",
+            "Sample.cs" to "C#",
+            "Sample.cpp" to "C++",
+            "Sample.c" to "C",
+            "Sample.rs" to "Rust",
+            "Sample.swift" to "Swift",
+            "Sample.scala" to "Scala",
+            "Sample.groovy" to "Groovy",
+        )
+
+        expectations.forEach { (fileName, displayName) ->
+            val language = resolver.resolve(
+                listOf(
+                    ResolvedFrame(
+                        frame = StackFrameInfo("com.example.Sample", "run", fileName, 12),
+                        resolvedPath = "src/main/$fileName",
+                        navigationPath = "/repo/src/main/$fileName",
+                        lineNumber = 12,
+                        status = ResolvedFrame.ResolutionStatus.RESOLVED,
+                    ),
+                ),
+            )
+
+            assertEquals(displayName, language.displayName)
+        }
+    }
+
+    @Test
+    fun `falls back to unresolved frame file name when no frame is resolved`() {
+        val language = resolver.resolve(
+            listOf(
+                ResolvedFrame(
+                    frame = StackFrameInfo("com.example.Sample", "run", "Sample.tsx", 12),
+                    resolvedPath = null,
+                    navigationPath = null,
+                    lineNumber = 12,
+                    status = ResolvedFrame.ResolutionStatus.UNRESOLVED,
+                ),
+            ),
+        )
+
+        assertEquals("TypeScript", language.displayName)
+        assertEquals("typescript", language.fenceTag)
+    }
 }
