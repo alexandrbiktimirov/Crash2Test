@@ -1,19 +1,14 @@
 package com.crash2test.services
 
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.net.ConnectException
-import java.net.HttpURLConnection
 import java.net.URI
-import java.net.http.HttpClient
-import java.net.http.HttpRequest
-import java.net.http.HttpResponse
 import java.time.Duration
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.TimeoutException
 
 interface CrashAnalysisGenerator {
@@ -66,47 +61,23 @@ class OllamaClient(
         }
     }
 
-    private fun buildGenerateRequest(prompt: String, stream: Boolean): String =
+    private fun buildGenerateRequest(prompt: String, stream: Boolean = false): String =
         buildJsonObject {
             put("model", config.model)
             put("prompt", prompt)
             put("stream", stream)
         }.toString()
 
-    private fun buildGenerateRequest(prompt: String): String = buildGenerateRequest(
-        prompt = prompt,
-        stream = false,
-    )
-
     private fun parseGenerateResponse(response: OllamaHttpResponse): OllamaResult {
         val payload = parseJson(response.body)
 
         if (response.statusCode !in 200..299) {
-            val errorMessage = payload
-                ?.get("error")
-                ?.let(::jsonStringValue)
-                ?.takeIf { it.isNotBlank() }
+            val message = payload?.stringValue("error")?.takeIf(String::isNotBlank)
                 ?: "Ollama request failed with HTTP ${response.statusCode}."
-
-            return OllamaResult.Failure(
-                type = classifyServerError(errorMessage),
-                message = errorMessage,
-            )
+            return serverFailure(message)
         }
 
-        val generatedText = payload
-            ?.get("response")
-            ?.let(::jsonStringValue)
-            ?.trim()
-
-        if (generatedText.isNullOrEmpty()) {
-            return OllamaResult.Failure(
-                type = OllamaErrorType.EMPTY_RESPONSE,
-                message = "Ollama returned an empty response.",
-            )
-        }
-
-        return OllamaResult.Success(generatedText)
+        return resultFromText(payload?.stringValue("response"))
     }
 
     private fun parseStreamingGenerateResponse(
@@ -120,16 +91,19 @@ class OllamaClient(
 
         streamedFailure?.let { return it }
 
-        val generatedText = accumulatedResponse.toString().trim()
-        if (generatedText.isEmpty()) {
-            return OllamaResult.Failure(
-                type = OllamaErrorType.EMPTY_RESPONSE,
-                message = "Ollama returned an empty response.",
-            )
-        }
-
-        return OllamaResult.Success(generatedText)
+        return resultFromText(accumulatedResponse.toString())
     }
+
+    private fun resultFromText(text: String?): OllamaResult {
+        val response = text?.trim()
+        return if (response.isNullOrEmpty()) {
+            OllamaResult.Failure(OllamaErrorType.EMPTY_RESPONSE, "Ollama returned an empty response.")
+        } else {
+            OllamaResult.Success(response)
+        }
+    }
+
+    private fun serverFailure(message: String) = OllamaResult.Failure(classifyServerError(message), message)
 
     private fun parseStreamingLine(
         line: String,
@@ -137,17 +111,12 @@ class OllamaClient(
         onChunk: (String) -> Unit,
     ): OllamaResult.Failure? {
         val payload = parseJson(line.trim()) ?: return null
-        val errorMessage = payload["error"]?.let(::jsonStringValue)
+        val errorMessage = payload.stringValue("error")
         if (!errorMessage.isNullOrBlank()) {
-            return OllamaResult.Failure(
-                type = classifyServerError(errorMessage),
-                message = errorMessage,
-            )
+            return serverFailure(errorMessage)
         }
 
-        val chunk = payload["response"]
-            ?.let(::jsonStringValue)
-            .orEmpty()
+        val chunk = payload.stringValue("response").orEmpty()
         if (chunk.isNotEmpty()) {
             accumulatedResponse.append(chunk)
             onChunk(chunk)
@@ -179,6 +148,11 @@ class OllamaClient(
         timeoutFailure()
     } catch (_: TimeoutException) {
         timeoutFailure()
+    } catch (_: IllegalArgumentException) {
+        OllamaResult.Failure(
+            type = OllamaErrorType.INVALID_REQUEST,
+            message = "Ollama URL is invalid. Check Crash2Test settings.",
+        )
     } catch (exception: Exception) {
         OllamaResult.Failure(
             type = OllamaErrorType.UNKNOWN,
@@ -200,9 +174,9 @@ class OllamaClient(
             OllamaErrorType.SERVER
         }
 
-    private fun jsonStringValue(element: kotlinx.serialization.json.JsonElement): String? = runCatching {
-        element.jsonPrimitive.content
-    }.getOrNull()
+    private fun JsonObject.stringValue(key: String): String? = get(key)?.let { element ->
+        runCatching { element.jsonPrimitive.content }.getOrNull()
+    }
 }
 
 data class OllamaClientConfig(
@@ -238,58 +212,4 @@ enum class OllamaErrorType {
     INVALID_REQUEST,
     SERVER,
     UNKNOWN,
-}
-
-interface OllamaTransport {
-    fun postJson(uri: URI, body: String, timeout: Duration): OllamaHttpResponse
-
-    fun streamJson(uri: URI, body: String, timeout: Duration, onLine: (String) -> Unit): OllamaHttpResponse
-}
-
-data class OllamaHttpResponse(
-    val statusCode: Int,
-    val body: String,
-)
-
-class HttpOllamaTransport(
-    private val httpClient: HttpClient = HttpClient.newBuilder().build(),
-) : OllamaTransport {
-    override fun postJson(uri: URI, body: String, timeout: Duration): OllamaHttpResponse {
-        val request = HttpRequest.newBuilder(uri)
-            .header("Content-Type", "application/json")
-            .timeout(timeout)
-            .POST(HttpRequest.BodyPublishers.ofString(body))
-            .build()
-
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofString())
-        return OllamaHttpResponse(
-            statusCode = response.statusCode(),
-            body = response.body(),
-        )
-    }
-
-    override fun streamJson(uri: URI, body: String, timeout: Duration, onLine: (String) -> Unit): OllamaHttpResponse {
-        val request = HttpRequest.newBuilder(uri)
-            .header("Content-Type", "application/json")
-            .timeout(timeout)
-            .POST(HttpRequest.BodyPublishers.ofString(body))
-            .build()
-
-        val response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream())
-        val responseBody = StringBuilder()
-        BufferedReader(InputStreamReader(response.body())).use { reader ->
-            while (true) {
-                val line = reader.readLine() ?: break
-                responseBody.appendLine(line)
-                if (response.statusCode() == HttpURLConnection.HTTP_OK) {
-                    onLine(line)
-                }
-            }
-        }
-
-        return OllamaHttpResponse(
-            statusCode = response.statusCode(),
-            body = responseBody.toString(),
-        )
-    }
 }

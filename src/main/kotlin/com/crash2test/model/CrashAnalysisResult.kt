@@ -13,10 +13,6 @@ sealed interface CrashAnalysisResult {
         val message: String,
         val parsedStackTrace: ParsedStackTrace? = null,
         val resolvedFrames: List<ResolvedFrame> = emptyList(),
-        val regressionTestLanguage: RegressionTestLanguage = RegressionTestLanguage(
-            displayName = "Kotlin",
-            fenceTag = "kotlin",
-            suggestedFileName = "GeneratedRegressionTest.kt",
-        ),
+        val regressionTestLanguage: RegressionTestLanguage = RegressionTestLanguage.DEFAULT,
     ) : CrashAnalysisResult
 }

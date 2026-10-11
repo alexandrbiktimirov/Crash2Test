@@ -37,3 +37,20 @@ Crash2Test expects a local Ollama instance.
 - Recommended model: `mistral`
 
 If Ollama is not running, the plugin still parses the stack trace and shows a useful fallback view.
+
+## Development
+
+Use JDK 21 and the included Gradle wrapper:
+
+- `./gradlew check` (Windows: `.\gradlew.bat check`) runs tests and enforces 80% code coverage.
+- `./gradlew runIde` launches an IntelliJ IDEA sandbox with the plugin installed.
+- `./gradlew buildPlugin` creates the plugin archive in `build/distributions`.
+
+Source code is organized by responsibility under `src/main/kotlin/com/crash2test`:
+
+- `model` contains crash data and the shared regression-test language definitions.
+- `services` parses traces, resolves project files, builds prompts, and calls Ollama. `OllamaTransport` isolates HTTP requests from response handling.
+- `settings` persists and edits the Ollama configuration.
+- `ui` renders analysis results and manages the tool window. `RegressionTestEditor` owns the syntax-highlighted code viewer and its lifecycle.
+
+Tests mirror these packages under `src/test/kotlin`. To support another regression-test language, update the definitions and extension aliases in `RegressionTestLanguage`.

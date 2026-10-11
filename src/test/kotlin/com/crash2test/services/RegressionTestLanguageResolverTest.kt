@@ -38,19 +38,30 @@ class RegressionTestLanguageResolverTest {
     @Test
     fun `detects common regression test languages from resolved source extension`() {
         val expectations = mapOf(
+            "Sample.kts" to "Kotlin",
             "Sample.py" to "Python",
             "Sample.js" to "JavaScript",
+            "Sample.MJS" to "JavaScript",
+            "Sample.cjs" to "JavaScript",
             "Sample.ts" to "TypeScript",
+            "Sample.tsx" to "TypeScript",
             "Sample.go" to "Go",
             "Sample.rb" to "Ruby",
             "Sample.php" to "PHP",
             "Sample.cs" to "C#",
             "Sample.cpp" to "C++",
+            "Sample.cc" to "C++",
+            "Sample.cxx" to "C++",
+            "Sample.hpp" to "C++",
+            "Sample.hh" to "C++",
+            "Sample.hxx" to "C++",
+            "Sample.h" to "C++",
             "Sample.c" to "C",
             "Sample.rs" to "Rust",
             "Sample.swift" to "Swift",
             "Sample.scala" to "Scala",
             "Sample.groovy" to "Groovy",
+            "Sample.unknown" to "Kotlin",
         )
 
         expectations.forEach { (fileName, displayName) ->

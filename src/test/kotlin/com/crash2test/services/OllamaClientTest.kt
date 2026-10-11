@@ -133,9 +133,32 @@ class OllamaClientTest {
     }
 
     @Test
+    fun `returns invalid request failure when configured URL is malformed`() {
+        val client = OllamaClient(
+            config = OllamaClientConfig(baseUrl = "not a valid url"),
+            transport = RecordingTransport(
+                response = OllamaHttpResponse(
+                    statusCode = 200,
+                    body = """{"response":"unused"}""",
+                ),
+            ),
+        )
+
+        val result = client.generate("Analyze this crash")
+
+        assertEquals(
+            OllamaResult.Failure(
+                type = OllamaErrorType.INVALID_REQUEST,
+                message = "Ollama URL is invalid. Check Crash2Test settings.",
+            ),
+            result,
+        )
+    }
+
+    @Test
     fun `streams partial responses and accumulates final text`() {
         val chunks = mutableListOf<String>()
-        val transport = StreamingTransport(
+        val transport = RecordingTransport(
             response = OllamaHttpResponse(
                 statusCode = 200,
                 body = """
@@ -162,7 +185,7 @@ class OllamaClientTest {
     @Test
     fun `returns server failure for streamed error payload`() {
         val client = OllamaClient(
-            transport = StreamingTransport(
+            transport = RecordingTransport(
                 response = OllamaHttpResponse(
                     statusCode = 200,
                     body = """{"error":"backend overloaded","done":true}""",
@@ -179,6 +202,38 @@ class OllamaClientTest {
             ),
             result,
         )
+    }
+
+    @Test
+    fun `ignores malformed streaming lines and stops publishing after a server error`() {
+        val chunks = mutableListOf<String>()
+        val client = OllamaClient(
+            transport = RecordingTransport(
+                OllamaHttpResponse(
+                    200,
+                    """
+                        not json
+                        {"response":"Partial result"}
+                        {"error":"backend overloaded"}
+                        {"response":"must not be published"}
+                    """.trimIndent(),
+                ),
+            ),
+        )
+
+        val result = client.generateStreaming("Analyze this crash", chunks::add)
+
+        assertEquals(listOf("Partial result"), chunks)
+        assertEquals(OllamaResult.Failure(OllamaErrorType.SERVER, "backend overloaded"), result)
+    }
+
+    @Test
+    fun `uses the same empty response failure for both request modes`() {
+        val client = OllamaClient(transport = RecordingTransport(OllamaHttpResponse(200, "{}")))
+        val expected = OllamaResult.Failure(OllamaErrorType.EMPTY_RESPONSE, "Ollama returned an empty response.")
+
+        assertEquals(expected, client.generate("Analyze this crash"))
+        assertEquals(expected, client.generateStreaming("Analyze this crash") {})
     }
 
     private class RecordingTransport(
@@ -213,29 +268,6 @@ class OllamaClientTest {
 
         override fun streamJson(uri: URI, body: String, timeout: Duration, onLine: (String) -> Unit): OllamaHttpResponse {
             throw exception
-        }
-    }
-
-    private class StreamingTransport(
-        private val response: OllamaHttpResponse,
-    ) : OllamaTransport {
-        var recordedUri: URI? = null
-        var recordedBody: String? = null
-        var recordedTimeout: Duration? = null
-
-        override fun postJson(uri: URI, body: String, timeout: Duration): OllamaHttpResponse {
-            recordedUri = uri
-            recordedBody = body
-            recordedTimeout = timeout
-            return response
-        }
-
-        override fun streamJson(uri: URI, body: String, timeout: Duration, onLine: (String) -> Unit): OllamaHttpResponse {
-            recordedUri = uri
-            recordedBody = body
-            recordedTimeout = timeout
-            response.body.lineSequence().forEach(onLine)
-            return response
         }
     }
 }

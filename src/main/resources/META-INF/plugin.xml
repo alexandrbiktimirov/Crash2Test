@@ -11,6 +11,12 @@
     <resource-bundle>messages.Crash2TestBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.crash2test.settings.Crash2TestSettingsState"/>
+        <applicationConfigurable
+                parentId="tools"
+                instance="com.crash2test.settings.Crash2TestSettingsConfigurable"
+                id="com.crash2test.settings"
+                displayName="Crash2Test"/>
         <toolWindow
                 id="Crash2Test"
                 anchor="right"

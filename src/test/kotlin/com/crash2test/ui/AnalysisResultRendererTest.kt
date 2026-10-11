@@ -53,6 +53,26 @@ class AnalysisResultRendererTest {
     }
 
     @Test
+    fun `uses generated code language for the filename and preserves fallback for unknown tags`() {
+        val sourceLanguage = RegressionTestLanguage("Kotlin", "kotlin", "GeneratedRegressionTest.kt")
+        val result = CrashAnalysisResult.Success(
+            parsedStackTrace = ParsedStackTrace("RuntimeException", null, emptyList()),
+            resolvedFrames = emptyList(),
+            regressionTestLanguage = sourceLanguage,
+            prompt = "prompt",
+            analysisText = "Regression Test\n```PYTHON\nassert succeeds()\n```",
+        )
+
+        val pythonState = renderer.render(result)
+        assertEquals("generated_regression_test.py", pythonState.regressionTestFileName)
+        assertEquals("PYTHON", pythonState.regressionTestFenceTag)
+
+        val unknownState = renderer.render(result.copy(analysisText = "Regression Test\n```custom\nverify()\n```"))
+        assertEquals(sourceLanguage.suggestedFileName, unknownState.regressionTestFileName)
+        assertEquals("custom", unknownState.regressionTestFenceTag)
+    }
+
+    @Test
     fun `renders parsed fallback details when ollama fails`() {
         val frame = StackFrameInfo(
             className = "com.example.orders.OrderService",

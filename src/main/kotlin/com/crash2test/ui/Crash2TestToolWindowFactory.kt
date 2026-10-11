@@ -13,6 +13,4 @@ class Crash2TestToolWindowFactory : ToolWindowFactory, DumbAware {
         content.setDisposer(panel)
         toolWindow.contentManager.addContent(content)
     }
-
-    override fun shouldBeAvailable(project: Project): Boolean = true
 }

@@ -21,20 +21,7 @@ class AnalysisResultRenderer {
     )
 
     fun render(result: CrashAnalysisResult): Crash2TestViewState = when (result) {
-        is CrashAnalysisResult.Success -> regressionTestCodeExtractor.extract(result.analysisText).let { extracted ->
-            Crash2TestViewState(
-                statusMessage = "Analysis complete.",
-                resultText = extracted.markdown,
-                canAnalyze = true,
-                clickableFrames = clickableFrames(result.resolvedFrames),
-                regressionTestCode = extracted.regressionTestCode?.code,
-                regressionTestFenceTag = extracted.regressionTestCode?.fenceTag ?: result.regressionTestLanguage.fenceTag,
-                regressionTestFileName = buildRegressionTestFileName(
-                    extracted.regressionTestCode?.fenceTag ?: result.regressionTestLanguage.fenceTag,
-                    result.regressionTestLanguage.suggestedFileName,
-                ),
-            )
-        }
+        is CrashAnalysisResult.Success -> renderSuccess(result)
 
         is CrashAnalysisResult.Failure -> Crash2TestViewState(
             statusMessage = result.message,
@@ -44,6 +31,21 @@ class AnalysisResultRenderer {
             regressionTestCode = fallbackRegressionTestCode(result.regressionTestLanguage),
             regressionTestFenceTag = result.regressionTestLanguage.fenceTag,
             regressionTestFileName = result.regressionTestLanguage.suggestedFileName,
+        )
+    }
+
+    private fun renderSuccess(result: CrashAnalysisResult.Success): Crash2TestViewState {
+        val extracted = regressionTestCodeExtractor.extract(result.analysisText)
+        val fenceTag = extracted.regressionTestCode?.fenceTag ?: result.regressionTestLanguage.fenceTag
+        return Crash2TestViewState(
+            statusMessage = "Analysis complete.",
+            resultText = extracted.markdown,
+            canAnalyze = true,
+            clickableFrames = clickableFrames(result.resolvedFrames),
+            regressionTestCode = extracted.regressionTestCode?.code,
+            regressionTestFenceTag = fenceTag,
+            regressionTestFileName = RegressionTestLanguage.fromFenceTag(fenceTag)?.suggestedFileName
+                ?: result.regressionTestLanguage.suggestedFileName,
         )
     }
 
@@ -134,26 +136,6 @@ class AnalysisResultRenderer {
 
     private fun com.crash2test.model.StackFrameInfo.render(): String =
         "${className}.${methodName}(${fileName ?: "Unknown Source"}${lineNumber?.let { ":$it" } ?: ""})"
-
-    private fun buildRegressionTestFileName(fenceTag: String, fallbackFileName: String): String =
-        when (fenceTag.lowercase()) {
-            "java" -> "GeneratedRegressionTest.java"
-            "kotlin" -> "GeneratedRegressionTest.kt"
-            "python" -> "generated_regression_test.py"
-            "javascript" -> "generatedRegressionTest.js"
-            "typescript" -> "generatedRegressionTest.ts"
-            "go" -> "generated_regression_test.go"
-            "ruby" -> "generated_regression_test.rb"
-            "php" -> "GeneratedRegressionTest.php"
-            "csharp" -> "GeneratedRegressionTest.cs"
-            "cpp" -> "generated_regression_test.cpp"
-            "c" -> "generated_regression_test.c"
-            "rust" -> "generated_regression_test.rs"
-            "swift" -> "GeneratedRegressionTest.swift"
-            "scala" -> "GeneratedRegressionTest.scala"
-            "groovy" -> "GeneratedRegressionTest.groovy"
-            else -> fallbackFileName
-        }
 
     companion object {
         private const val MAX_SUMMARY_FRAMES = 5
