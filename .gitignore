@@ -44,3 +44,11 @@ bin/
 
 ### AI ###
 AGENTS.md
+
+### Release tooling and credentials ###
+node_modules/
+*.pem
+*.key
+*.crt
+.env
+.env.*
