@@ -43,7 +43,7 @@ class MarkdownToHtmlRenderer {
             if (trimmed.matches(ORDERED_LIST_PATTERN)) {
                 html.append("<ol style=\"margin:6px 0 10px 20px;\">")
                 while (index < lines.size && lines[index].trim().matches(ORDERED_LIST_PATTERN)) {
-                    val item = lines[index].trim().replaceFirst(Regex("""^\d+\.\s+"""), "")
+                    val item = lines[index].trim().replaceFirst(ORDERED_LIST_PREFIX, "")
                     html.append("<li>").append(formatInline(item)).append("</li>")
                     index++
                 }
@@ -85,14 +85,10 @@ class MarkdownToHtmlRenderer {
         return html.toString()
     }
 
-    private fun formatInline(text: String): String {
-        var escaped = escapeHtml(text)
-
-        escaped = escaped.replace(Regex("""`([^`]+)`"""), "<code>$1</code>")
-        escaped = escaped.replace(Regex("""\*\*([^*]+)\*\*"""), "<b>$1</b>")
-        escaped = escaped.replace(Regex("""\*([^*]+)\*"""), "<i>$1</i>")
-        return escaped
-    }
+    private fun formatInline(text: String): String = escapeHtml(text)
+        .replace(INLINE_CODE_PATTERN, "<code>$1</code>")
+        .replace(BOLD_PATTERN, "<b>$1</b>")
+        .replace(ITALIC_PATTERN, "<i>$1</i>")
 
     private fun escapeHtml(text: String): String = buildString {
         text.forEach { character ->
@@ -110,6 +106,10 @@ class MarkdownToHtmlRenderer {
 
     companion object {
         private const val CODE_FENCE = "```"
+        private val INLINE_CODE_PATTERN = Regex("""`([^`]+)`""")
+        private val BOLD_PATTERN = Regex("""\*\*([^*]+)\*\*""")
+        private val ITALIC_PATTERN = Regex("""\*([^*]+)\*""")
+        private val ORDERED_LIST_PREFIX = Regex("""^\d+\.\s+""")
         private val ORDERED_LIST_PATTERN = Regex("""^\d+\.\s+.+$""")
         private val UNORDERED_LIST_PATTERN = Regex("""^[-*]\s+.+$""")
     }

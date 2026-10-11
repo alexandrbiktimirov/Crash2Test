@@ -10,33 +10,33 @@ class PromptBuilder {
         parsed: ParsedStackTrace,
         resolvedFrames: List<ResolvedFrame>,
         codeSnippets: List<ResolvedCodeSnippet> = emptyList(),
-        regressionTestLanguage: RegressionTestLanguage = RegressionTestLanguage(
-            displayName = "Kotlin",
-            fenceTag = "kotlin",
-            suggestedFileName = "GeneratedRegressionTest.kt",
-        ),
+        regressionTestLanguage: RegressionTestLanguage = RegressionTestLanguage.DEFAULT,
     ): String = buildString {
-        appendLine("You are analyzing a Java or Kotlin crash inside an IntelliJ IDEA plugin.")
-        appendLine("Use only the crash details below.")
-        appendLine("Do not invent files, classes, or stack frames that are not present.")
-        appendLine("Keep the response concise and practical.")
-        appendLine("Do not ask for more information.")
-        appendLine("If the cause is uncertain, say it is likely rather than certain.")
-        appendLine("Propose a concrete fix when possible.")
-        appendLine("For Regression Test, do not default to a unit test.")
-        appendLine("Prefer a behavioral or integration-style regression test that reproduces the user-visible failure path.")
-        appendLine("If an automated regression test is appropriate, provide a single copyable ${regressionTestLanguage.displayName} regression test snippet inside a fenced ```${regressionTestLanguage.fenceTag} code block```.")
-        appendLine("If code would be misleading without missing setup, describe the regression scenario and test steps instead of inventing a unit test.")
-        appendLine("Use the provided code snippets when they are available.")
-        appendLine("Do not assume code exists beyond the provided snippets.")
-        appendLine()
-        appendLine("Return exactly these sections:")
-        appendLine("Summary")
-        appendLine("Likely Root Cause")
-        appendLine("Proposed Fix")
-        appendLine("Regression Test")
-        appendLine("Files to Inspect")
-        appendLine("Bug Report Draft")
+        appendLine(
+            """
+            You are analyzing a Java or Kotlin crash inside an IntelliJ IDEA plugin.
+            Use only the crash details below.
+            Do not invent files, classes, or stack frames that are not present.
+            Keep the response concise and practical.
+            Do not ask for more information.
+            If the cause is uncertain, say it is likely rather than certain.
+            Propose a concrete fix when possible.
+            For Regression Test, do not default to a unit test.
+            Prefer a behavioral or integration-style regression test that reproduces the user-visible failure path.
+            If an automated regression test is appropriate, provide a single copyable ${regressionTestLanguage.displayName} regression test snippet inside a fenced ```${regressionTestLanguage.fenceTag} code block```.
+            If code would be misleading without missing setup, describe the regression scenario and test steps instead of inventing a unit test.
+            Use the provided code snippets when they are available.
+            Do not assume code exists beyond the provided snippets.
+
+            Return exactly these sections:
+            Summary
+            Likely Root Cause
+            Proposed Fix
+            Regression Test
+            Files to Inspect
+            Bug Report Draft
+            """.trimIndent(),
+        )
         appendLine()
         appendLine("Exception Type: ${parsed.exceptionType ?: "Unknown"}")
         appendLine("Exception Message: ${parsed.exceptionMessage ?: "Not provided"}")

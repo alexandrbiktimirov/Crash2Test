@@ -20,10 +20,7 @@ class Crash2TestSettingsState : PersistentStateComponent<Crash2TestSettingsState
     }
 
     fun update(ollamaBaseUrl: String, modelName: String) {
-        settings = State(
-            ollamaBaseUrl = ollamaBaseUrl.normalizedOrDefault(OllamaClientConfig.DEFAULT_BASE_URL),
-            modelName = modelName.normalizedOrDefault(OllamaClientConfig.DEFAULT_MODEL),
-        )
+        settings = State(ollamaBaseUrl, modelName).normalized()
     }
 
     fun toOllamaClientConfig(): OllamaClientConfig = OllamaClientConfig(

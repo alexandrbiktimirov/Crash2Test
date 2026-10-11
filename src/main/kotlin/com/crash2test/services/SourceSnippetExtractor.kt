@@ -13,7 +13,7 @@ class SourceSnippetExtractor(
         resolvedFrames.asSequence()
             .filter { it.status == ResolvedFrame.ResolutionStatus.RESOLVED }
             .filter { it.navigationPath != null && it.lineNumber != null }
-            .distinctBy { "${it.navigationPath}:${it.lineNumber}" }
+            .distinctBy { it.navigationPath to it.lineNumber }
             .take(maxSnippets)
             .mapNotNull(::extractSnippet)
             .toList()
@@ -21,7 +21,7 @@ class SourceSnippetExtractor(
     private fun extractSnippet(resolvedFrame: ResolvedFrame): ResolvedCodeSnippet? {
         val path = resolvedFrame.navigationPath?.let(Path::of) ?: return null
         val focusLineNumber = resolvedFrame.lineNumber?.takeIf { it > 0 } ?: return null
-        if (!Files.exists(path) || !Files.isRegularFile(path)) {
+        if (!Files.isRegularFile(path)) {
             return null
         }
 
