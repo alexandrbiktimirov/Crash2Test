@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import test from "node:test";
 import { analyzeCommits } from "@semantic-release/commit-analyzer";
+import { generateNotes } from "@semantic-release/release-notes-generator";
 import config from "../release.config.mjs";
 import { prepare, verifyConditions } from "./marketplace-release.mjs";
 
@@ -31,6 +32,28 @@ test("a release includes all changes since the previous tag and uses the largest
   const commits = ["fix: handle empty input", "feat: support another language", "refactor: simplify rendering"]
     .map((message) => ({ message }));
   assert.equal(await analyzeCommits(analyzerOptions, { commits, logger }), "minor");
+});
+
+test("release notes render features, fixes, and links with the configured preset", async () => {
+  const notes = await generateNotes(config.plugins[1][1], {
+    cwd: process.cwd(),
+    logger,
+    options: { repositoryUrl: config.repositoryUrl },
+    lastRelease: { version: "0.1.0", gitTag: "v0.1.0" },
+    nextRelease: { version: "0.2.0", gitTag: "v0.2.0" },
+    commits: [
+      { hash: "a".repeat(40), message: "Merge pull request #18 from alexandrbiktimirov/dev\n\nfeat: automate Marketplace releases" },
+      { hash: "b".repeat(40), message: "feat: automate Marketplace releases" },
+      { hash: "c".repeat(40), message: "fix: handle connection failures (#42)" },
+    ],
+  });
+
+  assert.match(notes, /automate Marketplace releases/);
+  assert.match(notes, /handle connection failures/);
+  const repository = config.repositoryUrl.replace(/\.git$/, "");
+  assert.ok(notes.includes(`${repository}/compare/v0.1.0...v0.2.0`));
+  assert.ok(notes.includes(`${repository}/commit/${"b".repeat(40)}`));
+  assert.ok(notes.includes(`${repository}/issues/42`));
 });
 
 test("missing credentials fail without exposing secret values", () => {
