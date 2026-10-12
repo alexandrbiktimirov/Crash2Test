@@ -66,6 +66,81 @@ class Crash2TestSettingsConfigurableTest {
         assertEquals(OllamaClientConfig.DEFAULT_MODEL, settings.state.modelName)
     }
 
+    @Test
+    fun `provider selection applies credentials separately and reset restores selection`() {
+        val storedKeys = mutableMapOf<com.crash2test.services.AiProvider, String>()
+        val keys = object : ApiKeyStore {
+            override fun get(provider: com.crash2test.services.AiProvider) = storedKeys[provider].orEmpty()
+            override fun set(provider: com.crash2test.services.AiProvider, key: String) { storedKeys[provider] = key }
+        }
+        val settings = Crash2TestSettingsState()
+        val configurable = Crash2TestSettingsConfigurable(settings, keys)
+        val panel = configurable.createComponent() as Container
+        fun descendants(parent: Container): List<java.awt.Component> = parent.components.toList() +
+            parent.components.filterIsInstance<Container>().flatMap { descendants(it) }
+        val controls = descendants(panel)
+        val selector = controls.filterIsInstance<javax.swing.JComboBox<*>>().single()
+        selector.selectedItem = com.crash2test.services.AiProvider.ANTHROPIC
+        val fields = panel.findTextFields()
+        assertEquals("https://api.anthropic.com/v1", fields[0].text)
+        controls.filterIsInstance<javax.swing.JPasswordField>().single().text = "test-secret"
+        configurable.apply()
+        assertEquals(com.crash2test.services.AiProvider.ANTHROPIC, settings.state.provider)
+        assertEquals("test-secret", storedKeys[com.crash2test.services.AiProvider.ANTHROPIC])
+        assertFalse(configurable.isModified())
+        selector.selectedItem = com.crash2test.services.AiProvider.OLLAMA
+        assertEquals("http://localhost:11434", fields[0].text)
+        configurable.reset()
+        assertEquals(com.crash2test.services.AiProvider.ANTHROPIC, selector.selectedItem)
+        assertFalse(configurable.isModified())
+    }
+
+    @Test
+    fun `apply saves edited profiles even after switching and reopening settings`() {
+        val stored = mutableMapOf<com.crash2test.services.AiProvider, String>()
+        val keys = object : ApiKeyStore {
+            override fun get(provider: com.crash2test.services.AiProvider) = stored[provider].orEmpty()
+            override fun set(provider: com.crash2test.services.AiProvider, key: String) { stored[provider] = key }
+        }
+        val settings = Crash2TestSettingsState()
+        val configurable = Crash2TestSettingsConfigurable(settings, keys)
+        val panel = configurable.createComponent() as Container
+        val selector = panel.components.filterIsInstance<javax.swing.JComboBox<*>>().single()
+        selector.selectedItem = com.crash2test.services.AiProvider.OPENAI
+        val fields = panel.findTextFields()
+        fields[0].text = "https://gateway.example.invalid/v1"
+        fields[1].text = "account-model"
+        panel.components.filterIsInstance<javax.swing.JPasswordField>().single().text = "dummy-only"
+        selector.selectedItem = com.crash2test.services.AiProvider.OLLAMA
+        assertTrue(configurable.isModified())
+        configurable.apply()
+        assertFalse(configurable.isModified())
+        val xml = com.intellij.openapi.util.JDOMUtil.writeElement(com.intellij.util.xmlb.XmlSerializer.serialize(settings.state))
+        assertFalse(xml.contains("dummy-only"))
+        assertFalse(xml.contains("apiKey", ignoreCase = true))
+        configurable.disposeUIResources()
+        val reopened = configurable.createComponent() as Container
+        reopened.components.filterIsInstance<javax.swing.JComboBox<*>>().single().selectedItem = com.crash2test.services.AiProvider.OPENAI
+        assertEquals("https://gateway.example.invalid/v1", reopened.findTextFields()[0].text)
+        assertEquals("account-model", reopened.findTextFields()[1].text)
+        assertEquals("dummy-only", String(reopened.components.filterIsInstance<javax.swing.JPasswordField>().single().password))
+        // Clearing a credential removes its value from the password store.
+        reopened.components.filterIsInstance<javax.swing.JPasswordField>().single().text = ""
+        configurable.apply()
+        assertEquals("", stored[com.crash2test.services.AiProvider.OPENAI])
+    }
+
+    @Test
+    fun `credentials in endpoint URL are rejected before saving`() {
+        val settings = Crash2TestSettingsState()
+        val configurable = Crash2TestSettingsConfigurable(settings)
+        val panel = configurable.createComponent() as Container
+        for (url in listOf("https://user:dummy@example.invalid/v1", "https://example.invalid/v1?api_key=dummy", "file:///tmp", "https://example.invalid/#dummy")) {
+            panel.findTextFields()[0].text = url
+            kotlin.test.assertFailsWith<com.intellij.openapi.options.ConfigurationException> { configurable.apply() }
+            assertEquals("http://localhost:11434", settings.state.ollamaBaseUrl)
+        }
+    }
     private fun Container.findTextFields(): List<JBTextField> {
         val directTextFields = components.filterIsInstance<JBTextField>()
         return directTextFields + components

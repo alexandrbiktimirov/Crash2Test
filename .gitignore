@@ -52,3 +52,12 @@ node_modules/
 *.crt
 .env
 .env.*
+
+# Local API credential files (keys belong in the IDE password store)
+crash2test.xml
+credentials.json
+secrets.json
+*.keystore
+*.p12
+*.kdbx
+*.jks

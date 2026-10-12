@@ -15,7 +15,7 @@ class AnalysisResultRenderer {
     )
 
     fun loadingState(): Crash2TestViewState = Crash2TestViewState(
-        statusMessage = "Running crash analysis with local Ollama...",
+        statusMessage = "Running crash analysis with the configured AI provider...",
         resultText = "",
         canAnalyze = false,
     )
@@ -83,10 +83,10 @@ class AnalysisResultRenderer {
             appendLine(summary)
             appendLine()
             appendLine("Likely Root Cause")
-            appendLine("Ollama analysis was unavailable. Review the parsed exception details and failure path below.")
+            appendLine("AI analysis was unavailable. Review the parsed exception details and failure path below.")
             appendLine()
             appendLine("Proposed Fix")
-            appendLine("Retry with Ollama running and the configured model installed. If the crash is reproducible in code, inspect the top stack frames for invalid state assumptions or missing guards.")
+            appendLine("Check the selected AI provider, endpoint, model, and credentials in Crash2Test settings, then retry. If the crash is reproducible in code, inspect the top stack frames for invalid state assumptions or missing guards.")
             appendLine()
             appendLine("Regression Test")
             appendLine("See dedicated code panel below.")

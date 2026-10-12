@@ -15,7 +15,7 @@ class SettingsBackedCrashAnalyzer(
         val service = CrashAnalysisService(
             stackTraceParser = StackTraceParser(),
             frameResolver = ProjectFileResolver(project),
-            analysisGenerator = OllamaClient(settings.toOllamaClientConfig()),
+            analysisGenerator = settings.createGenerator(),
         )
         return service.analyzeStreaming(rawInput, onChunk)
     }
